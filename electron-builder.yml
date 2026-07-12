@@ -5,12 +5,14 @@ directories:
 asar: true
 asarUnpack:
   - "**/*.node"
+  - ".next/standalone/**"
 npmRebuild: false
 files:
   - ".next/standalone/**"
   - "electron/**"
   - "package.json"
 win:
+  icon: build/icon.ico
   target:
     - target: nsis
       arch:

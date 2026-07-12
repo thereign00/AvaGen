@@ -21,7 +21,7 @@ if (!fs.existsSync(distDir)) {
 }
 
 const filesToUpload = fs.readdirSync(distDir).filter(f => 
-  f.endsWith(".exe") || f.endsWith(".yml") || f.endsWith(".blockmap")
+  f.includes("Setup") || f.endsWith(".yml") || f.endsWith(".blockmap")
 );
 
 if (filesToUpload.length === 0) {

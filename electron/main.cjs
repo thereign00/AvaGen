@@ -45,7 +45,14 @@ async function waitForServer(port, timeout = 30000) {
 }
 
 function getStandaloneServerPath() {
-  return path.join(getAppRoot(), ".next", "standalone", "server.js");
+  let serverJs = path.join(getAppRoot(), ".next", "standalone", "server.js");
+  if (serverJs.includes("app.asar") && !serverJs.includes("app.asar.unpacked")) {
+    const unpackedPath = serverJs.replace("app.asar", "app.asar.unpacked");
+    if (fs.existsSync(unpackedPath)) {
+      serverJs = unpackedPath;
+    }
+  }
+  return serverJs;
 }
 
 // Fork the Next.js standalone server
@@ -64,6 +71,7 @@ async function startServer() {
 
   serverProcess = fork(serverJs, [], {
     env,
+    cwd: path.dirname(serverJs),
     stdio: ["ignore", "pipe", "pipe", "ipc"],
   });
 
@@ -82,10 +90,12 @@ async function startServer() {
 }
 
 async function createWindow(port) {
+  const iconPath = path.join(getAppRoot(), "build", "icon.ico");
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
     title: "AvaGen",
+    icon: fs.existsSync(iconPath) ? iconPath : undefined,
     backgroundColor: "#0d0f12",
     show: false,
     webPreferences: {
