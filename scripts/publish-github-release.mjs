@@ -34,6 +34,7 @@ async function run() {
   
   let releaseId = null;
   let uploadUrlTemplate = null;
+  let existingAssets = [];
 
   // Check if release exists
   const checkRes = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/releases/tags/${tag}`, {
@@ -48,6 +49,7 @@ async function run() {
     console.log(`[GitHub Release] Release ${tag} already exists (ID: ${existing.id}).`);
     releaseId = existing.id;
     uploadUrlTemplate = existing.upload_url;
+    existingAssets = existing.assets || [];
   } else {
     console.log(`[GitHub Release] Creating new release ${tag}...`);
     const createRes = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/releases`, {
@@ -75,6 +77,7 @@ async function run() {
     console.log(`[GitHub Release] Created release ${tag} (ID: ${created.id}).`);
     releaseId = created.id;
     uploadUrlTemplate = created.upload_url;
+    existingAssets = [];
   }
 
   // Clean upload URL (remove {?name,label})
@@ -84,25 +87,38 @@ async function run() {
   for (const file of filesToUpload) {
     const filePath = path.join(distDir, file);
     const stats = fs.statSync(filePath);
+
+    // Check if asset already uploaded with matching size
+    const foundAsset = existingAssets.find(a => a.name === file);
+    if (foundAsset && foundAsset.size === stats.size) {
+      console.log(`[GitHub Release] Skipping ${file} (already uploaded: ${(stats.size / 1024 / 1024).toFixed(2)} MB).`);
+      continue;
+    } else if (foundAsset) {
+      console.log(`[GitHub Release] Deleting incomplete/old asset ${file} (ID: ${foundAsset.id})...`);
+      await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/releases/assets/${foundAsset.id}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `token ${TOKEN}`,
+          "User-Agent": "AvaGen-Publisher",
+        },
+      });
+    }
+
     console.log(`[GitHub Release] Uploading ${file} (${(stats.size / 1024 / 1024).toFixed(2)} MB)...`);
-
-    const fileStream = fs.readFileSync(filePath);
     const contentType = file.endsWith(".exe") ? "application/octet-stream" : "text/plain";
+    const uploadUrl = `${baseUploadUrl}?name=${encodeURIComponent(file)}`;
 
-    const uploadRes = await fetch(`${baseUploadUrl}?name=${encodeURIComponent(file)}`, {
-      method: "POST",
-      headers: {
-        Authorization: `token ${TOKEN}`,
-        "User-Agent": "AvaGen-Publisher",
-        "Content-Type": contentType,
-        "Content-Length": String(stats.size),
-      },
-      body: fileStream,
-    });
+    const { spawnSync } = await import("node:child_process");
+    const curlRes = spawnSync("curl.exe", [
+      "-L", "-X", "POST",
+      "-H", `Authorization: token ${TOKEN}`,
+      "-H", `Content-Type: ${contentType}`,
+      "--data-binary", `@${filePath}`,
+      uploadUrl
+    ], { stdio: "inherit" });
 
-    if (!uploadRes.ok) {
-      const errText = await uploadRes.text();
-      console.warn(`[Warning] Failed to upload ${file}: ${uploadRes.status} ${errText}`);
+    if (curlRes.status !== 0) {
+      console.warn(`[Warning] Failed to upload ${file} via curl.`);
     } else {
       console.log(`[GitHub Release] Successfully uploaded ${file}!`);
     }
