@@ -44,37 +44,40 @@ async function waitForServer(port, timeout = 30000) {
   throw new Error(`Server did not respond within ${timeout / 1000}s`);
 }
 
+function getStandaloneServerPath() {
+  let serverJs = path.join(getAppRoot(), ".next", "standalone", "server.js");
+  if (serverJs.includes("app.asar") && !serverJs.includes("app.asar.unpacked")) {
+    const unpackedPath = serverJs.replace("app.asar", "app.asar.unpacked");
+    if (fs.existsSync(unpackedPath)) {
+      serverJs = unpackedPath;
+    }
+  }
+  return serverJs;
+}
+
 // Spawn the Next.js standalone server
 async function startServer() {
   const port = await findFreePort();
-  const serverJs = path.join(getAppRoot(), ".next", "standalone", "server.js");
+  const serverJs = getStandaloneServerPath();
 
   const env = {
     ...process.env,
+    ELECTRON_RUN_AS_NODE: "1",
     PORT: String(port),
     HOSTNAME: "127.0.0.1",
     NODE_ENV: "production",
   };
 
-  // Try spawning with 'node' first so native C++ modules (better-sqlite3) match system Node ABI.
-  // If 'node' is unavailable on the machine, fallback to Electron's embedded Node runtime.
-  let execBin = "node";
-  console.log(`[Electron] Starting standalone server via ${execBin} (${serverJs}) on port ${port}`);
+  console.log(`[Electron] Starting standalone server via embedded Node (${process.execPath}) -> ${serverJs} on port ${port}`);
 
-  serverProcess = spawn(execBin, [serverJs], {
+  serverProcess = spawn(process.execPath, [serverJs], {
     env,
     cwd: path.dirname(serverJs),
     stdio: ["ignore", "pipe", "pipe"],
   });
 
   serverProcess.on("error", (err) => {
-    console.warn(`[Electron] 'node' command not found or failed, falling back to embedded Node runtime:`, err.message);
-    env.ELECTRON_RUN_AS_NODE = "1";
-    serverProcess = spawn(process.execPath, [serverJs], {
-      env,
-      cwd: path.dirname(serverJs),
-      stdio: ["ignore", "pipe", "pipe"],
-    });
+    console.error(`[Server Fatal Error] Failed to start server process:`, err);
   });
 
   serverProcess.stdout.on("data", (data) => {
@@ -121,7 +124,7 @@ async function createWindow(port) {
 app.whenReady().then(async () => {
   if (isDev) {
     // In dev mode, check if Next standalone exists or fall back to port 3001/3000
-    const standaloneJs = path.join(getAppRoot(), ".next", "standalone", "server.js");
+    const standaloneJs = getStandaloneServerPath();
     if (fs.existsSync(standaloneJs)) {
       const port = await startServer();
       await waitForServer(port);

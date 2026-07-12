@@ -5,6 +5,7 @@ directories:
 asar: true
 asarUnpack:
   - "**/*.node"
+  - ".next/standalone/**"
 npmRebuild: false
 files:
   - ".next/standalone/**"
