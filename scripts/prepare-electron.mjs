@@ -27,6 +27,13 @@ if (fs.existsSync(publicSrc)) {
   console.log("✓ Copied public/ → standalone");
 }
 
+// 2.5 Remove dist-electron bloat from standalone directory
+const distElectronInStandalone = path.join(root, ".next", "standalone", "dist-electron");
+if (fs.existsSync(distElectronInStandalone)) {
+  fs.rmSync(distElectronInStandalone, { recursive: true, force: true });
+  console.log("✓ Removed dist-electron from standalone to reduce size");
+}
+
 // 3. Resolve all symlinks in standalone folder so electron-builder unpack works on Windows non-admin accounts
 function dereferenceSymlinks(dir) {
   if (!fs.existsSync(dir)) return;
