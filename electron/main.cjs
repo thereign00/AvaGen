@@ -106,6 +106,24 @@ async function createWindow(port) {
 
   mainWindow.setMenuBarVisibility(false);
 
+  // Add context menu for copy/paste support
+  const { Menu } = require("electron");
+  mainWindow.webContents.on("context-menu", (event, params) => {
+    const template = [
+      { role: "undo" },
+      { role: "redo" },
+      { type: "separator" },
+      { role: "cut" },
+      { role: "copy" },
+      { role: "paste" },
+      { role: "delete" },
+      { type: "separator" },
+      { role: "selectAll" },
+    ];
+    const menu = Menu.buildFromTemplate(template);
+    menu.popup(mainWindow);
+  });
+
   // Open external links in user's default web browser
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith("http:") || url.startsWith("https:")) {
