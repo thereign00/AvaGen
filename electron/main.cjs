@@ -2,7 +2,7 @@
 const { app, BrowserWindow, shell, dialog } = require("electron");
 const { autoUpdater } = require("electron-updater");
 const path = require("path");
-const { spawn } = require("child_process");
+const { spawn, fork } = require("child_process");
 const net = require("net");
 const fs = require("fs");
 
@@ -45,35 +45,26 @@ async function waitForServer(port, timeout = 30000) {
 }
 
 function getStandaloneServerPath() {
-  let serverJs = path.join(getAppRoot(), ".next", "standalone", "server.js");
-  if (serverJs.includes("app.asar") && !serverJs.includes("app.asar.unpacked")) {
-    const unpackedPath = serverJs.replace("app.asar", "app.asar.unpacked");
-    if (fs.existsSync(unpackedPath)) {
-      serverJs = unpackedPath;
-    }
-  }
-  return serverJs;
+  return path.join(getAppRoot(), ".next", "standalone", "server.js");
 }
 
-// Spawn the Next.js standalone server
+// Fork the Next.js standalone server
 async function startServer() {
   const port = await findFreePort();
   const serverJs = getStandaloneServerPath();
 
   const env = {
     ...process.env,
-    ELECTRON_RUN_AS_NODE: "1",
     PORT: String(port),
     HOSTNAME: "127.0.0.1",
     NODE_ENV: "production",
   };
 
-  console.log(`[Electron] Starting standalone server via embedded Node (${process.execPath}) -> ${serverJs} on port ${port}`);
+  console.log(`[Electron] Forking standalone server (${serverJs}) on port ${port}`);
 
-  serverProcess = spawn(process.execPath, [serverJs], {
+  serverProcess = fork(serverJs, [], {
     env,
-    cwd: path.dirname(serverJs),
-    stdio: ["ignore", "pipe", "pipe"],
+    stdio: ["ignore", "pipe", "pipe", "ipc"],
   });
 
   serverProcess.on("error", (err) => {
