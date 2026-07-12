@@ -27,5 +27,5 @@ nsis:
   createStartMenuShortcut: true
 publish:
   provider: github
-  owner: "YOUR_GITHUB_USERNAME" # Update this to your GitHub username when publishing releases
+  owner: "thereign00"
   repo: "AvaGen"
