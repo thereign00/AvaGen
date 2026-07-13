@@ -11,6 +11,10 @@ interface Channel {
   voice_id: string | null;
   interval_sec: number;
   format: string;
+  ai_provider: string | null;
+  image_model: string | null;
+  video_model: string | null;
+  images_only: number;
 }
 
 const FORMATS = ["1920x1080", "1080x1920", "1280x720", "1080x1080"];
@@ -23,9 +27,17 @@ interface Draft {
   voice_id: string;
   interval_sec: number;
   format: string;
+  ai_provider: string;
+  image_model: string;
+  video_model: string;
+  images_only: boolean;
 }
 
-const EMPTY: Draft = { name: "", visual_mode: "mix", ai_style: "cinematic, photo realistic", visual_prompt: "", voice_id: "", interval_sec: 6, format: "1920x1080" };
+const EMPTY: Draft = { 
+  name: "", visual_mode: "mix", ai_style: "cinematic, photo realistic", visual_prompt: "", 
+  voice_id: "", interval_sec: 6, format: "1920x1080",
+  ai_provider: "", image_model: "", video_model: "", images_only: false
+};
 
 export default function ChainesPage() {
   const tr = useT();
@@ -52,7 +64,12 @@ export default function ChainesPage() {
   useEffect(() => { load(); }, [load]);
 
   function bodyOf(d: Draft) {
-    return { name: d.name.trim(), visual_mode: d.visual_mode, ai_style: d.ai_style, visual_prompt: d.visual_prompt, voice_id: d.voice_id, interval_sec: d.interval_sec, format: d.format };
+    return { 
+      name: d.name.trim(), visual_mode: d.visual_mode, ai_style: d.ai_style, 
+      visual_prompt: d.visual_prompt, voice_id: d.voice_id, interval_sec: d.interval_sec, 
+      format: d.format,
+      ai_provider: d.ai_provider, image_model: d.image_model, video_model: d.video_model, images_only: d.images_only
+    };
   }
 
   async function create() {
@@ -69,7 +86,13 @@ export default function ChainesPage() {
 
   function startEdit(c: Channel) {
     setEditingId(c.id);
-    setEdit({ name: c.name, visual_mode: c.visual_mode, ai_style: c.ai_style ?? "", visual_prompt: c.visual_prompt ?? "", voice_id: c.voice_id ?? "", interval_sec: c.interval_sec, format: c.format });
+    setEdit({ 
+      name: c.name, visual_mode: c.visual_mode, ai_style: c.ai_style ?? "", 
+      visual_prompt: c.visual_prompt ?? "", voice_id: c.voice_id ?? "", 
+      interval_sec: c.interval_sec, format: c.format,
+      ai_provider: c.ai_provider ?? "", image_model: c.image_model ?? "", video_model: c.video_model ?? "",
+      images_only: c.images_only === 1
+    });
   }
 
   async function saveEdit() {
@@ -130,6 +153,32 @@ export default function ChainesPage() {
         <label className="label">{tr("ElevenLabs voice_id (optionnel — voix de cette chaîne)", "ElevenLabs voice_id (optional — this channel's voice)")}</label>
         <input className="input" value={d.voice_id} onChange={(e) => set({ ...d, voice_id: e.target.value })}
           placeholder={tr("vide = voix globale (Paramètres)", "empty = global voice (Settings)")} />
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+        <div>
+          <label className="label">{tr("Fournisseur IA (optionnel)", "AI Provider (optional)")}</label>
+          <select className="input" value={d.ai_provider} onChange={(e) => set({ ...d, ai_provider: e.target.value })}>
+            <option value="">{tr("Par défaut (Paramètres)", "Default (Settings)")}</option>
+            <option value="69labs">69labs</option>
+            <option value="kie">Kie AI</option>
+          </select>
+        </div>
+        <div>
+          <label className="label">{tr("Modèle Image (optionnel)", "Image Model (optional)")}</label>
+          <input className="input" value={d.image_model} onChange={(e) => set({ ...d, image_model: e.target.value })} placeholder={tr("Par défaut", "Default")} />
+        </div>
+        <div>
+          <label className="label">{tr("Modèle Vidéo (optionnel)", "Video Model (optional)")}</label>
+          <input className="input" value={d.video_model} onChange={(e) => set({ ...d, video_model: e.target.value })} placeholder={tr("Par défaut", "Default")} />
+        </div>
+      </div>
+
+      <div>
+        <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 14 }}>
+          <input type="checkbox" checked={d.images_only} onChange={(e) => set({ ...d, images_only: e.target.checked })} />
+          <span>{tr("Images uniquement (désactiver la génération vidéo et animer les images fixes avec Ken Burns)", "Images only (turn off video generation and animate stills with Ken Burns)")}</span>
+        </label>
       </div>
 
       <div>

@@ -21,17 +21,21 @@ export interface Channel {
   interval_sec: number;
   format: string;
   avatar_id: number | null;
+  ai_provider: string | null;
+  image_model: string | null;
+  video_model: string | null;
+  images_only: number;
   created_at: string;
   updated_at: string;
 }
 
-const COLS = "id, name, visual_mode, ai_style, visual_prompt, voice_id, interval_sec, format, avatar_id, created_at, updated_at";
+const COLS = "id, name, visual_mode, ai_style, visual_prompt, voice_id, interval_sec, format, avatar_id, ai_provider, image_model, video_model, images_only, created_at, updated_at";
 const listStmt = db.prepare(`SELECT ${COLS} FROM channels ORDER BY name COLLATE NOCASE ASC`);
 const getStmt = db.prepare(`SELECT ${COLS} FROM channels WHERE id = ?`);
 const getByNameStmt = db.prepare(`SELECT ${COLS} FROM channels WHERE name = ?`);
 const insertStmt = db.prepare(
-  `INSERT INTO channels (name, visual_mode, ai_style, visual_prompt, voice_id, interval_sec, format, avatar_id)
-   VALUES (@name, @visual_mode, @ai_style, @visual_prompt, @voice_id, @interval_sec, @format, @avatar_id)`
+  `INSERT INTO channels (name, visual_mode, ai_style, visual_prompt, voice_id, interval_sec, format, avatar_id, ai_provider, image_model, video_model, images_only)
+   VALUES (@name, @visual_mode, @ai_style, @visual_prompt, @voice_id, @interval_sec, @format, @avatar_id, @ai_provider, @image_model, @video_model, @images_only)`
 );
 const deleteStmt = db.prepare("DELETE FROM channels WHERE id = ?");
 
@@ -54,6 +58,10 @@ export interface ChannelInput {
   interval_sec?: number;
   format?: string;
   avatar_id?: number | null;
+  ai_provider?: string | null;
+  image_model?: string | null;
+  video_model?: string | null;
+  images_only?: number;
 }
 
 function normMode(m: string | undefined): VisualMode {
@@ -73,6 +81,10 @@ export function createChannel(input: ChannelInput): number {
     interval_sec: Number.isFinite(input.interval_sec) ? Number(input.interval_sec) : 4.5,
     format: (input.format || "1920x1080").trim(),
     avatar_id: input.avatar_id ?? null,
+    ai_provider: input.ai_provider?.trim() || null,
+    image_model: input.image_model?.trim() || null,
+    video_model: input.video_model?.trim() || null,
+    images_only: input.images_only ? 1 : 0,
   });
   return Number(res.lastInsertRowid);
 }
@@ -82,7 +94,8 @@ export function updateChannel(id: number, input: ChannelInput): void {
   if (!name) throw new Error("Channel name cannot be empty");
   db.prepare(
     `UPDATE channels SET name=@name, visual_mode=@visual_mode, ai_style=@ai_style, visual_prompt=@visual_prompt,
-       voice_id=@voice_id, interval_sec=@interval_sec, format=@format, avatar_id=@avatar_id, updated_at=datetime('now')
+       voice_id=@voice_id, interval_sec=@interval_sec, format=@format, avatar_id=@avatar_id, 
+       ai_provider=@ai_provider, image_model=@image_model, video_model=@video_model, images_only=@images_only, updated_at=datetime('now')
      WHERE id=@id`
   ).run({
     id,
@@ -94,6 +107,10 @@ export function updateChannel(id: number, input: ChannelInput): void {
     interval_sec: Number.isFinite(input.interval_sec) ? Number(input.interval_sec) : 4.5,
     format: (input.format || "1920x1080").trim(),
     avatar_id: input.avatar_id ?? null,
+    ai_provider: input.ai_provider?.trim() || null,
+    image_model: input.image_model?.trim() || null,
+    video_model: input.video_model?.trim() || null,
+    images_only: input.images_only ? 1 : 0,
   });
 }
 

@@ -122,6 +122,10 @@ db.exec(`
     interval_sec REAL NOT NULL DEFAULT 4.5,
     format TEXT NOT NULL DEFAULT '1920x1080',
     avatar_id INTEGER,
+    ai_provider TEXT,
+    image_model TEXT,
+    video_model TEXT,
+    images_only INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
@@ -171,6 +175,12 @@ tryAddColumn("avatars", "channel_id INTEGER");
 tryAddColumn("channels", "visual_prompt TEXT");
 // Per-channel ElevenLabs narration voice (NULL = global ELEVENLABS_VOICE_ID).
 tryAddColumn("channels", "voice_id TEXT");
+
+// Custom AI model overrides per channel
+tryAddColumn("channels", "ai_provider TEXT");
+tryAddColumn("channels", "image_model TEXT");
+tryAddColumn("channels", "video_model TEXT");
+tryAddColumn("channels", "images_only INTEGER");
 
 // Avatar snapshot onto a run — so the pipeline reads a stable avatar even if the
 // library row is edited/deleted later. avatar_db_id is the library id; the

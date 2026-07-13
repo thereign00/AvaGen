@@ -30,9 +30,11 @@ export async function animateScene(
     /** Optional preset-level override for the animation_motion suffix.
      *  Empty/null → fall back to global default from prompts table. */
     motionOverride?: string | null;
+    provider?: string;
+    model?: string;
   } = {}
 ): Promise<string | null> {
-  const provider = (getSetting("ANIMATION_PROVIDER") || "off").toLowerCase();
+  const provider = (options.provider || getSetting("ANIMATION_PROVIDER") || "off").toLowerCase();
   if (provider === "off") return null;
 
   const fileName = `scene_${String(scene.index).padStart(3, "0")}.mp4`;
@@ -51,7 +53,8 @@ export async function animateScene(
       options.providerJobId,
       options.imageProvider,
       filePath,
-      options.motionOverride
+      options.motionOverride,
+      options.model
     );
   } else if (provider === "replicate") {
     if (!imagePath) throw new Error("Replicate Kling needs an image keyframe — not available in Conveyer Grok's video-only flow.");
@@ -73,9 +76,10 @@ async function labs69Img2Vid(
   providerJobId: string | undefined,
   imageProvider: string | undefined,
   outPath: string,
-  motionOverride?: string | null
+  motionOverride?: string | null,
+  modelOverride?: string
 ) {
-  const model = getSetting("ANIMATION_MODEL") || undefined;
+  const model = modelOverride || getSetting("ANIMATION_MODEL") || undefined;
   const aspectRatio = getSetting("IMAGE_RATIO") || undefined;
   const durationSetting = getSetting("ANIMATION_DURATION") || undefined;
   // ANIMATION_KEEP_VEO_AUDIO=1 — keep generated ambient audio (default: off, mute it).

@@ -41,6 +41,10 @@ interface StudioConfig {
   aiStyle: string | undefined;
   format: string | undefined;
   visualPrompt: string | undefined;
+  aiProvider: string | undefined;
+  imageModel: string | undefined;
+  videoModel: string | undefined;
+  imagesOnly: boolean;
 }
 
 function readConfig(runId: string): StudioConfig {
@@ -59,6 +63,10 @@ function readConfig(runId: string): StudioConfig {
     aiStyle: typeof cfg.aiStyle === "string" && cfg.aiStyle.trim() ? cfg.aiStyle.trim() : undefined,
     format: typeof cfg.format === "string" && /^\d+\s*[x×]\s*\d+$/i.test(cfg.format) ? cfg.format.trim() : undefined,
     visualPrompt: typeof cfg.visualPrompt === "string" && cfg.visualPrompt.trim() ? cfg.visualPrompt.trim() : undefined,
+    aiProvider: typeof cfg.aiProvider === "string" && cfg.aiProvider.trim() ? cfg.aiProvider.trim() : undefined,
+    imageModel: typeof cfg.imageModel === "string" && cfg.imageModel.trim() ? cfg.imageModel.trim() : undefined,
+    videoModel: typeof cfg.videoModel === "string" && cfg.videoModel.trim() ? cfg.videoModel.trim() : undefined,
+    imagesOnly: cfg.imagesOnly === true,
   };
 }
 
@@ -177,7 +185,14 @@ export async function runStudioPipeline(runId: string, script: string): Promise<
             if (!visualPath) {
               try {
                 const out = path.join(brollDir, `beat_${String(beat.index).padStart(4, "0")}.mp4`);
-                const res = await limitVisual(() => acquireVisual(runId, { ...beat, source: beat.source }, out, usedIds, { aiStyle: cfg.aiStyle, resolution: cfg.format }));
+                const res = await limitVisual(() => acquireVisual(runId, { ...beat, source: beat.source }, out, usedIds, { 
+                  aiStyle: cfg.aiStyle, 
+                  resolution: cfg.format,
+                  aiProvider: cfg.aiProvider,
+                  imageModel: cfg.imageModel,
+                  videoModel: cfg.videoModel,
+                  imagesOnly: cfg.imagesOnly,
+                }));
                 visualPath = res.path;
               } catch {
                 visualPath = null; // filled from the nearest good visual after all beats resolve

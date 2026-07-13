@@ -90,6 +90,10 @@ export async function POST(req: Request) {
     visualPrompt: body.visualPrompt ?? channel?.visual_prompt ?? undefined,
     format: channel?.format,
     channelId: channel?.id,
+    aiProvider: channel?.ai_provider,
+    imageModel: channel?.image_model,
+    videoModel: channel?.video_model,
+    imagesOnly: channel?.images_only === 1,
   };
 
   insertRun.run(id, body.title?.trim() || null, folderName, script, JSON.stringify(config));

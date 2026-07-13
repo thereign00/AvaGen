@@ -27,6 +27,10 @@ export async function POST(req: Request) {
       interval_sec: body.interval_sec != null ? Number(body.interval_sec) : undefined,
       format: body.format != null ? String(body.format) : undefined,
       avatar_id: body.avatar_id != null ? Number(body.avatar_id) : null,
+      ai_provider: body.ai_provider != null ? String(body.ai_provider) : null,
+      image_model: body.image_model != null ? String(body.image_model) : null,
+      video_model: body.video_model != null ? String(body.video_model) : null,
+      images_only: body.images_only ? 1 : 0,
     });
     return NextResponse.json(getChannel(id));
   } catch (e) {

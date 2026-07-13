@@ -22,9 +22,13 @@ export interface ImageResult {
 export async function generateImage(
   runId: string,
   scene: Scene,
-  outDir: string
+  outDir: string,
+  opts: {
+    provider?: string;
+    model?: string;
+  } = {}
 ): Promise<ImageResult> {
-  const provider = (getSetting("IMAGE_PROVIDER") || "69labs").toLowerCase();
+  const provider = (opts.provider || getSetting("IMAGE_PROVIDER") || "69labs").toLowerCase();
   const styleSuffix = getPrompt("image_prompt");
   const finalPrompt = `${scene.visual_prompt}, ${styleSuffix}`;
   const fileName = `scene_${String(scene.index).padStart(3, "0")}.png`;
@@ -36,7 +40,7 @@ export async function generateImage(
   });
 
   if (provider === "69labs") {
-    const jobId = await labs69Image(runId, finalPrompt, filePath);
+    const jobId = await labs69Image(runId, finalPrompt, filePath, opts.model);
     log(runId, "success", `Image saved: ${fileName}`, { stage: "image" });
     return { filePath, providerJobId: jobId, provider };
   }
@@ -53,8 +57,8 @@ export async function generateImage(
   return { filePath, provider };
 }
 
-async function labs69Image(runId: string, prompt: string, outPath: string): Promise<string> {
-  const model = getSetting("IMAGE_MODEL") || undefined; // server default = imagen-4
+async function labs69Image(runId: string, prompt: string, outPath: string, modelOverride?: string): Promise<string> {
+  const model = modelOverride || getSetting("IMAGE_MODEL") || undefined; // server default = imagen-4
   let aspectRatio = getSetting("IMAGE_RATIO") || undefined;
 
   // Imagen 4 only accepts 'square|portrait|landscape', not numeric ratios like '16:9'.

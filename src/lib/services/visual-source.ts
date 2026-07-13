@@ -470,19 +470,26 @@ async function acquireAi(
   beat: Beat,
   beatDurSec: number,
   outPath: string,
-  aiStyle?: string,
-  resolution?: string
+  opts: {
+    aiStyle?: string;
+    resolution?: string;
+    aiProvider?: string;
+    imageModel?: string;
+    videoModel?: string;
+    imagesOnly?: boolean;
+  }
 ): Promise<VisualResult> {
-  const provider = (getSetting("AI_PROVIDER") || "kie").toLowerCase();
-  const style = (aiStyle ?? getSetting("AI_IMAGE_STYLE")) || "";
+  const provider = (opts.aiProvider || getSetting("AI_PROVIDER") || "kie").toLowerCase();
+  const style = (opts.aiStyle ?? getSetting("AI_IMAGE_STYLE")) || "";
   // Suppress baked-in captions/labels that nano-banana/Veo tend to render.
   const noText = "no text, no captions, no subtitles, no words, no letters, no watermark, no logo";
   const prompt = [beat.visualQuery || beat.text, style, noText].filter(Boolean).join(", ");
-  const aspect = aiAspect(resolution);
+  const aspect = aiAspect(opts.resolution);
+
+  const isImagesOnly = opts.imagesOnly || getSetting("KIE_AI_MEDIA")?.toLowerCase() === "image";
 
   if (provider === "kie") {
-    const media = (getSetting("KIE_AI_MEDIA") || "image").toLowerCase();
-    if (media === "video") {
+    if (!isImagesOnly) {
       const url = await generateVideoUrl(runId, prompt, aspect, Math.ceil(beatDurSec));
       await downloadKie(url, outPath);
       log(runId, "info", `Beat ${beat.index}: AI video via kie.ai/Veo`, { stage: "visual" });
@@ -492,7 +499,7 @@ async function acquireAi(
     const url = await generateImageUrl(runId, prompt, aspect);
     const tmpImg = path.join(os.tmpdir(), `kie_${runId.slice(0, 8)}_${beat.index}.png`);
     await downloadKie(url, tmpImg);
-    kenBurns(tmpImg, outPath, beatDurSec, beat.index % 2 === 1, resolution);
+    kenBurns(tmpImg, outPath, beatDurSec, beat.index % 2 === 1, opts.resolution);
     try {
       fs.unlinkSync(tmpImg);
     } catch {}
@@ -508,7 +515,20 @@ async function acquireAi(
     visual_prompt: prompt,
     duration_hint_sec: Math.max(2, Math.round(beatDurSec)),
   };
-  const generated = await animateScene(runId, pseudo, null, dir, { motionOverride: null });
+
+  if (isImagesOnly) {
+    const { generateImage } = await import("./image-gen");
+    const imgRes = await generateImage(runId, pseudo, dir, { provider, model: opts.imageModel });
+    kenBurns(imgRes.filePath, outPath, beatDurSec, beat.index % 2 === 1, opts.resolution);
+    log(runId, "info", `Beat ${beat.index}: AI still via ${provider} + Ken Burns`, { stage: "visual" });
+    return { path: outPath, kind: "ai", provider: `${provider}:image` };
+  }
+
+  const generated = await animateScene(runId, pseudo, null, dir, { 
+    motionOverride: null,
+    provider,
+    model: opts.videoModel
+  });
   if (!generated) throw new Error(`AI generation produced no clip for beat ${beat.index}`);
   if (path.resolve(generated) !== path.resolve(outPath)) {
     fs.renameSync(generated, outPath);
@@ -525,7 +545,14 @@ export async function acquireVisual(
   beat: Beat,
   outPath: string,
   usedIds: Set<string>,
-  opts: { aiStyle?: string; resolution?: string } = {}
+  opts: { 
+    aiStyle?: string; 
+    resolution?: string;
+    aiProvider?: string;
+    imageModel?: string;
+    videoModel?: string;
+    imagesOnly?: boolean;
+  } = {}
 ): Promise<VisualResult> {
   const beatDurSec = Math.max(0.8, (beat.endMs - beat.startMs) / 1000);
   if (beat.source === "real") {
@@ -533,5 +560,5 @@ export async function acquireVisual(
     if (real) return real;
     log(runId, "warn", `Beat ${beat.index}: no real footage found — falling back to AI`, { stage: "visual" });
   }
-  return acquireAi(runId, beat, beatDurSec, outPath, opts.aiStyle, opts.resolution);
+  return acquireAi(runId, beat, beatDurSec, outPath, opts);
 }

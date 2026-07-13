@@ -65,22 +65,27 @@ const nodeExeUrl = "https://nodejs.org/dist/v24.16.0/win-x64/node.exe";
 const nodeExePath = path.join(standaloneDir, "node.exe");
 
 if (!fs.existsSync(nodeExePath)) {
-  console.log("Downloading standalone node.exe (v24.16.0) to match ABI 137...");
-  await new Promise((resolve, reject) => {
-    https.get(nodeExeUrl, (res) => {
-      if (res.statusCode !== 200) {
-        return reject(new Error(`Failed to download node.exe: ${res.statusCode}`));
-      }
-      const stream = fs.createWriteStream(nodeExePath);
-      res.pipe(stream);
-      stream.on("finish", () => {
-        stream.close();
-        resolve();
-      });
-      stream.on("error", reject);
-    }).on("error", reject);
-  });
-  console.log("✓ Downloaded node.exe successfully");
+  const cachedNodeExe = path.join(root, "node.exe");
+  if (!fs.existsSync(cachedNodeExe)) {
+    console.log("Downloading standalone node.exe (v24.16.0) to match ABI 137...");
+    await new Promise((resolve, reject) => {
+      https.get(nodeExeUrl, (res) => {
+        if (res.statusCode !== 200) {
+          return reject(new Error(`Failed to download node.exe: ${res.statusCode}`));
+        }
+        const stream = fs.createWriteStream(cachedNodeExe);
+        res.pipe(stream);
+        stream.on("finish", () => {
+          stream.close();
+          resolve();
+        });
+        stream.on("error", reject);
+      }).on("error", reject);
+    });
+    console.log("✓ Downloaded node.exe to cache");
+  }
+  fs.cpSync(cachedNodeExe, nodeExePath);
+  console.log("✓ Copied node.exe from cache");
 } else {
   console.log("✓ node.exe already exists");
 }
