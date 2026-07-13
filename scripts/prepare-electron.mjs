@@ -84,3 +84,23 @@ if (!fs.existsSync(nodeExePath)) {
 } else {
   console.log("✓ node.exe already exists");
 }
+
+// 5. Copy ffmpeg.exe into standalone folder
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
+let ffmpegStaticPath;
+try {
+  ffmpegStaticPath = require("ffmpeg-static");
+} catch (e) {
+  console.warn("! ffmpeg-static not found");
+}
+
+if (ffmpegStaticPath && fs.existsSync(ffmpegStaticPath)) {
+  const ffmpegDestPath = path.join(standaloneDir, "ffmpeg.exe");
+  if (!fs.existsSync(ffmpegDestPath)) {
+    fs.cpSync(ffmpegStaticPath, ffmpegDestPath);
+    console.log("✓ Copied ffmpeg.exe to standalone");
+  } else {
+    console.log("✓ ffmpeg.exe already exists");
+  }
+}

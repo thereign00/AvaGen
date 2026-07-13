@@ -67,6 +67,11 @@ async function startServer() {
     NODE_ENV: "production",
   };
 
+  const localFfmpegExe = path.join(path.dirname(serverJs), "ffmpeg.exe");
+  if (fs.existsSync(localFfmpegExe)) {
+    env.FFMPEG_PATH = localFfmpegExe;
+  }
+
   const localNodeExe = path.join(path.dirname(serverJs), "node.exe");
   if (fs.existsSync(localNodeExe)) {
     console.log(`[Electron] Spawning standalone server (${serverJs}) on port ${port} using local node.exe`);
