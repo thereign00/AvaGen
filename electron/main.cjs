@@ -1,5 +1,5 @@
 // electron/main.cjs
-const { app, BrowserWindow, shell, dialog } = require("electron");
+const { app, BrowserWindow, shell, dialog, Menu, MenuItem } = require("electron");
 const { autoUpdater } = require("electron-updater");
 const path = require("path");
 const { spawn, fork } = require("child_process");
@@ -67,13 +67,22 @@ async function startServer() {
     NODE_ENV: "production",
   };
 
-  console.log(`[Electron] Forking standalone server (${serverJs}) on port ${port}`);
-
-  serverProcess = fork(serverJs, [], {
-    env,
-    cwd: path.dirname(serverJs),
-    stdio: ["ignore", "pipe", "pipe", "ipc"],
-  });
+  const localNodeExe = path.join(path.dirname(serverJs), "node.exe");
+  if (fs.existsSync(localNodeExe)) {
+    console.log(`[Electron] Spawning standalone server (${serverJs}) on port ${port} using local node.exe`);
+    serverProcess = spawn(localNodeExe, [serverJs], {
+      env,
+      cwd: path.dirname(serverJs),
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+  } else {
+    console.log(`[Electron] Forking standalone server (${serverJs}) on port ${port}`);
+    serverProcess = fork(serverJs, [], {
+      env,
+      cwd: path.dirname(serverJs),
+      stdio: ["ignore", "pipe", "pipe", "ipc"],
+    });
+  }
 
   serverProcess.on("error", (err) => {
     console.error(`[Server Fatal Error] Failed to start server process:`, err);

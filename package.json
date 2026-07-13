@@ -1,6 +1,6 @@
 {
   "name": "avagen",
-  "version": "0.2.7",
+  "version": "0.3.1",
   "private": true,
   "description": "Local pipeline platform for avatar-fronted documentary YouTube videos — HeyGen photo avatar + ElevenLabs voiceover, illustrated with real internet footage / AI b-roll (Ken Burns on stills).",
   "main": "electron/main.cjs",
@@ -40,7 +40,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "electron": "^43.1.0",
+    "electron": "^34.0.0",
     "electron-builder": "^26.15.3",
     "tailwindcss": "^4",
     "tsx": "^4.22.3",

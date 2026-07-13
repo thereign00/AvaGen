@@ -58,3 +58,29 @@ function dereferenceSymlinks(dir) {
 const standaloneDir = path.join(root, ".next", "standalone");
 dereferenceSymlinks(standaloneDir);
 console.log("✓ Dereferenced symlinks in .next/standalone");
+
+// 4. Download standalone node.exe into standalone folder to match ABI 137
+import https from "https";
+const nodeExeUrl = "https://nodejs.org/dist/v24.16.0/win-x64/node.exe";
+const nodeExePath = path.join(standaloneDir, "node.exe");
+
+if (!fs.existsSync(nodeExePath)) {
+  console.log("Downloading standalone node.exe (v24.16.0) to match ABI 137...");
+  await new Promise((resolve, reject) => {
+    https.get(nodeExeUrl, (res) => {
+      if (res.statusCode !== 200) {
+        return reject(new Error(`Failed to download node.exe: ${res.statusCode}`));
+      }
+      const stream = fs.createWriteStream(nodeExePath);
+      res.pipe(stream);
+      stream.on("finish", () => {
+        stream.close();
+        resolve();
+      });
+      stream.on("error", reject);
+    }).on("error", reject);
+  });
+  console.log("✓ Downloaded node.exe successfully");
+} else {
+  console.log("✓ node.exe already exists");
+}
