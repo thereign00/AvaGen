@@ -190,6 +190,7 @@ export default function ParametresPage() {
           {field(tr("Google Gemini — clé API (requêtes visuelles)", "Google Gemini — API key (visual queries)"), "GOOGLE_API_KEY")}
           {field(tr("69labs — clé API (si provider 69labs)", "69labs — API key (if provider is 69labs)"), "LABS69_API_KEY")}
           {field(tr("Style images IA par défaut", "Default AI image style"), "AI_IMAGE_STYLE")}
+          {field(tr("Avatar IV — durée max (s, 0 = illimité)", "Avatar IV — max duration (s, 0 = unlimited)"), "AVATAR_IV_MAX_SECONDS")}
 
           <div>
             <label className="label">{tr("Sources de footage réel (1ère = priorité)", "Real footage sources (1st = priority)")}</label>

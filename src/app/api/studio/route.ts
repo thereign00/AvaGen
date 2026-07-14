@@ -33,6 +33,7 @@ interface Body {
   realPercent?: number;
   aiStyle?: string;
   visualPrompt?: string;
+  avatarIvMaxSec?: number;
 }
 
 export async function POST(req: Request) {
@@ -94,6 +95,7 @@ export async function POST(req: Request) {
     imageModel: channel?.image_model,
     videoModel: channel?.video_model,
     imagesOnly: channel?.images_only === 1,
+    avatarIvMaxSec: body.avatarIvMaxSec ?? channel?.avatar_iv_max_sec,
   };
 
   insertRun.run(id, body.title?.trim() || null, folderName, script, JSON.stringify(config));

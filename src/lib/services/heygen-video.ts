@@ -47,7 +47,7 @@ function dimension(resolution?: string): { width: number; height: number } {
   return { width: 1920, height: 1080 };
 }
 
-function buildCharacter(avatar: AvatarHandle): Record<string, unknown> {
+function buildCharacter(avatar: AvatarHandle, useAvatarIvOverride?: boolean): Record<string, unknown> {
   if (avatar.engine === "talking_photo") {
     const c: Record<string, unknown> = {
       type: "talking_photo",
@@ -55,7 +55,8 @@ function buildCharacter(avatar: AvatarHandle): Record<string, unknown> {
       scale: 1.0,
       talking_photo_style: "square",
     };
-    if (avatar.useAvatarIv) c.use_avatar_iv_model = true;
+    const useIv = useAvatarIvOverride !== undefined ? useAvatarIvOverride : avatar.useAvatarIv;
+    if (useIv) c.use_avatar_iv_model = true;
     return c;
   }
   return { type: "avatar", avatar_id: avatar.heygenId, avatar_style: "normal" };
@@ -70,7 +71,7 @@ export async function generateAvatarClip(
   avatar: AvatarHandle,
   audioPath: string,
   outPath: string,
-  opts: { background?: string; title?: string; resolution?: string } = {}
+  opts: { background?: string; title?: string; resolution?: string; useAvatarIvOverride?: boolean } = {}
 ): Promise<string> {
   if (!fs.existsSync(audioPath)) throw new Error(`Voiceover not found for HeyGen: ${audioPath}`);
 
@@ -82,8 +83,9 @@ export async function generateAvatarClip(
   // omit it so the avatar keeps its OWN photo background (a flat colour makes the
   // avatar look like a floating head — the "no background" issue).
   const bgColor = (opts.background ?? getSetting("AVATAR_BACKGROUND") ?? "").trim();
+  const character = buildCharacter(avatar, opts.useAvatarIvOverride);
   const videoInput: Record<string, unknown> = {
-    character: buildCharacter(avatar),
+    character,
     voice: { type: "audio", audio_asset_id: audioAssetId },
   };
   if (bgColor) videoInput.background = { type: "color", value: bgColor };

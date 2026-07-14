@@ -101,6 +101,7 @@ export const SETTING_KEYS = [
   "AVATAR_BACKGROUND",         // HeyGen avatar background color (hex) + placeholder color
   "VISUAL_CONCURRENCY",        // parallel b-roll fetch/gen jobs (default 3)
   "AVATAR_CONCURRENCY",        // parallel HeyGen avatar-clip jobs (default 2)
+  "AVATAR_IV_MAX_SECONDS",     // seconds from video start to use Avatar IV before downgrading to standard (default 30, 0 = unlimited)
   "YT_DLP_ENABLED",            // "1" to allow the yt-dlp YouTube source (OFF by default — copyright risk)
   "YT_DLP_PATH",               // path to yt-dlp(.exe) if not on PATH
 
@@ -288,6 +289,7 @@ export const DEFAULTS: Record<SettingKey, string> = {
   AVATAR_BACKGROUND: "",
   VISUAL_CONCURRENCY: "3",
   AVATAR_CONCURRENCY: "2",
+  AVATAR_IV_MAX_SECONDS: "30",
   YT_DLP_ENABLED: "",
   YT_DLP_PATH: "",
 

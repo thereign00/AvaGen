@@ -126,6 +126,7 @@ db.exec(`
     image_model TEXT,
     video_model TEXT,
     images_only INTEGER NOT NULL DEFAULT 0,
+    avatar_iv_max_sec INTEGER NOT NULL DEFAULT 30,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
@@ -181,6 +182,7 @@ tryAddColumn("channels", "ai_provider TEXT");
 tryAddColumn("channels", "image_model TEXT");
 tryAddColumn("channels", "video_model TEXT");
 tryAddColumn("channels", "images_only INTEGER");
+tryAddColumn("channels", "avatar_iv_max_sec INTEGER DEFAULT 30");
 
 // Avatar snapshot onto a run — so the pipeline reads a stable avatar even if the
 // library row is edited/deleted later. avatar_db_id is the library id; the

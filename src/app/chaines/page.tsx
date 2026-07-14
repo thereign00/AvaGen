@@ -15,6 +15,7 @@ interface Channel {
   image_model: string | null;
   video_model: string | null;
   images_only: number;
+  avatar_iv_max_sec: number;
 }
 
 const FORMATS = ["1920x1080", "1080x1920", "1280x720", "1080x1080"];
@@ -31,12 +32,13 @@ interface Draft {
   image_model: string;
   video_model: string;
   images_only: boolean;
+  avatar_iv_max_sec: number;
 }
 
 const EMPTY: Draft = { 
   name: "", visual_mode: "mix", ai_style: "cinematic, photo realistic", visual_prompt: "", 
   voice_id: "", interval_sec: 6, format: "1920x1080",
-  ai_provider: "", image_model: "", video_model: "", images_only: false
+  ai_provider: "", image_model: "", video_model: "", images_only: false, avatar_iv_max_sec: 30
 };
 
 export default function ChainesPage() {
@@ -68,7 +70,8 @@ export default function ChainesPage() {
       name: d.name.trim(), visual_mode: d.visual_mode, ai_style: d.ai_style, 
       visual_prompt: d.visual_prompt, voice_id: d.voice_id, interval_sec: d.interval_sec, 
       format: d.format,
-      ai_provider: d.ai_provider, image_model: d.image_model, video_model: d.video_model, images_only: d.images_only
+      ai_provider: d.ai_provider, image_model: d.image_model, video_model: d.video_model, images_only: d.images_only,
+      avatar_iv_max_sec: d.avatar_iv_max_sec
     };
   }
 
@@ -91,7 +94,8 @@ export default function ChainesPage() {
       visual_prompt: c.visual_prompt ?? "", voice_id: c.voice_id ?? "", 
       interval_sec: c.interval_sec, format: c.format,
       ai_provider: c.ai_provider ?? "", image_model: c.image_model ?? "", video_model: c.video_model ?? "",
-      images_only: c.images_only === 1
+      images_only: c.images_only === 1,
+      avatar_iv_max_sec: c.avatar_iv_max_sec ?? 30
     });
   }
 
@@ -174,11 +178,18 @@ export default function ChainesPage() {
         </div>
       </div>
 
-      <div>
-        <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 14 }}>
-          <input type="checkbox" checked={d.images_only} onChange={(e) => set({ ...d, images_only: e.target.checked })} />
-          <span>{tr("Images uniquement (désactiver la génération vidéo et animer les images fixes avec Ken Burns)", "Images only (turn off video generation and animate stills with Ken Burns)")}</span>
-        </label>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "center" }}>
+        <div>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 14, paddingTop: 18 }}>
+            <input type="checkbox" checked={d.images_only} onChange={(e) => set({ ...d, images_only: e.target.checked })} />
+            <span>{tr("Images uniquement (désactiver la génération vidéo)", "Images only (turn off video generation)")}</span>
+          </label>
+        </div>
+        <div>
+          <label className="label">{tr("Avatar IV — durée max (s, 0 = illimité)", "Avatar IV — max duration (s, 0 = unlimited)")}</label>
+          <input className="input" type="number" min={0} max={9999} step={5} value={d.avatar_iv_max_sec}
+            onChange={(e) => { const n = Number(e.target.value); if (e.target.value !== "" && Number.isFinite(n)) set({ ...d, avatar_iv_max_sec: n }); }} />
+        </div>
       </div>
 
       <div>

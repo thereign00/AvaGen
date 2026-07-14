@@ -31,3 +31,4 @@ publish:
   provider: github
   owner: "thereign00"
   repo: "AvaGen"
+  releaseType: "release"

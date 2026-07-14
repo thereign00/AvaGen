@@ -45,6 +45,7 @@ interface StudioConfig {
   imageModel: string | undefined;
   videoModel: string | undefined;
   imagesOnly: boolean;
+  avatarIvMaxSec: number;
 }
 
 function readConfig(runId: string): StudioConfig {
@@ -67,6 +68,9 @@ function readConfig(runId: string): StudioConfig {
     imageModel: typeof cfg.imageModel === "string" && cfg.imageModel.trim() ? cfg.imageModel.trim() : undefined,
     videoModel: typeof cfg.videoModel === "string" && cfg.videoModel.trim() ? cfg.videoModel.trim() : undefined,
     imagesOnly: cfg.imagesOnly === true,
+    avatarIvMaxSec: cfg.avatarIvMaxSec != null && Number.isFinite(Number(cfg.avatarIvMaxSec))
+      ? Number(cfg.avatarIvMaxSec)
+      : Number(getSetting("AVATAR_IV_MAX_SECONDS") || "30"),
   };
 }
 
@@ -104,10 +108,12 @@ export async function runStudioPipeline(runId: string, script: string): Promise<
     updateRun.run("running", null, runId);
     const cfg = readConfig(runId);
     const avatar = readAvatar(runId);
+    const maxIvSec = cfg.avatarIvMaxSec;
+    const ivInfo = avatar ? (avatar.useAvatarIv ? ` (IV ≤${maxIvSec <= 0 ? "all" : `${maxIvSec}s`})` : " (std)") : "";
     log(
       runId,
       "info",
-      `Pipeline started (v${APP_VERSION}) · mode=${cfg.visualMode} · ${cfg.secondsPerVisual}s/visual · avatar=${avatar ? `${cfg.avatarPercent}%` : "none"} · real=${cfg.realPercent}%`,
+      `Pipeline started (v${APP_VERSION}) · mode=${cfg.visualMode} · ${cfg.secondsPerVisual}s/visual · avatar=${avatar ? `${cfg.avatarPercent}%${ivInfo}` : "none"} · real=${cfg.realPercent}%`,
       { stage: "pipeline" }
     );
 
@@ -173,8 +179,9 @@ export async function runStudioPipeline(runId: string, script: string): Promise<
             const beatAudio = path.join(avatarDir, `beat_${String(beat.index).padStart(4, "0")}.mp3`);
             sliceAudio(voiceover.filePath, beat.startMs, beat.endMs, beatAudio);
             const clip = path.join(avatarDir, `beat_${String(beat.index).padStart(4, "0")}.mp4`);
+            const useAvatarIvOverride = avatar.useAvatarIv && (maxIvSec <= 0 || beat.startMs < maxIvSec * 1000);
             await limitAvatar(() =>
-              generateAvatarClip(runId, avatar, beatAudio, clip, { title: `beat ${beat.index}`, resolution: cfg.format })
+              generateAvatarClip(runId, avatar, beatAudio, clip, { title: `beat ${beat.index}`, resolution: cfg.format, useAvatarIvOverride })
             );
             avatarClipPath = clip;
           } catch (e) {

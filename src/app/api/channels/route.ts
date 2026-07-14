@@ -31,6 +31,7 @@ export async function POST(req: Request) {
       image_model: body.image_model != null ? String(body.image_model) : null,
       video_model: body.video_model != null ? String(body.video_model) : null,
       images_only: body.images_only ? 1 : 0,
+      avatar_iv_max_sec: body.avatar_iv_max_sec != null ? Number(body.avatar_iv_max_sec) : undefined,
     });
     return NextResponse.json(getChannel(id));
   } catch (e) {
