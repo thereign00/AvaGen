@@ -43,7 +43,7 @@ export function buildBeats(words: WordTiming[], targetSec: number): Omit<Beat, "
   const hardMax = target * 1.7;
   const beats: Omit<Beat, "layout" | "visualQuery" | "source">[] = [];
   let cur: WordTiming[] = [];
-  let startMs = words[0]?.startMs ?? 0;
+  let startMs = 0; // Start beat 0 right from 0ms to include any lead-in audio
 
   const flush = () => {
     if (cur.length === 0) return;
@@ -57,7 +57,10 @@ export function buildBeats(words: WordTiming[], targetSec: number): Omit<Beat, "
   };
 
   for (const w of words) {
-    if (cur.length === 0) startMs = w.startMs;
+    if (cur.length === 0) {
+      // Start this beat right where the previous beat ended to prevent dropping pauses
+      startMs = beats.length > 0 ? beats[beats.length - 1].endMs : 0;
+    }
     cur.push(w);
     const dur = w.endMs - startMs;
     const atSentenceEnd = SENTENCE_END.test(w.word);
@@ -66,6 +69,19 @@ export function buildBeats(words: WordTiming[], targetSec: number): Omit<Beat, "
     }
   }
   flush();
+
+  // Make all beats 100% contiguous so no pauses or trailing word breaths are cut out
+  for (let i = 0; i < beats.length - 1; i++) {
+    if (beats[i + 1].startMs > beats[i].endMs) {
+      beats[i].endMs = beats[i + 1].startMs;
+    } else {
+      beats[i + 1].startMs = beats[i].endMs;
+    }
+  }
+  if (beats.length > 0) {
+    // Add 800ms buffer to the final beat so the room decay of the last sentence finishes cleanly
+    beats[beats.length - 1].endMs += 800;
+  }
   return beats;
 }
 

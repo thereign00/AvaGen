@@ -44,7 +44,7 @@ function runFfmpeg(args: string[]): void {
   }
 }
 
-/** Video + audio encode params (identical across beats → concat with -c copy). */
+/** Video + audio encode params (legacy or when audio is included). */
 function encodeAV(fps: number): string[] {
   return [
     "-r", String(fps),
@@ -56,6 +56,20 @@ function encodeAV(fps: number): string[] {
     "-b:a", "192k",
     "-ar", "44100",
     "-ac", "2",
+    "-movflags", "+faststart",
+    "-y",
+  ];
+}
+
+/** Silent video encode params (for exact beat clips before continuous master audio muxing). */
+function encodeV(fps: number): string[] {
+  return [
+    "-r", String(fps),
+    "-c:v", "libx264",
+    "-preset", "veryfast",
+    "-crf", "21",
+    "-pix_fmt", "yuv420p",
+    "-an",
     "-movflags", "+faststart",
     "-y",
   ];
@@ -89,12 +103,10 @@ function contentCrop(clipPath: string): string | null {
 }
 
 /**
- * Render one beat clip (WITH audio) to outPath.
- *  - avatar/split: use the HeyGen clip's OWN audio so the lips match perfectly
- *    (HeyGen may add a short lead-in; its own audio carries the same offset, so
- *    overlaying the master track separately would drift). Length = the clip.
- *  - broll: full-screen visual + the master voiceover slice [startMs,endMs].
- * Every beat carries an aac track → concatenated audio = the full narration.
+ * Render one beat clip (SILENT video of exact duration durSec) to outPath.
+ * By producing exact-duration silent clips for avatar, split, and broll beats and then
+ * muxing the continuous master voiceover over the concatenated video in assembleStudioVideo,
+ * we eliminate all audio boundary cuts, AAC priming gaps, and HeyGen length desyncs entirely.
  */
 function renderBeat(
   beat: RenderBeat,
@@ -103,7 +115,6 @@ function renderBeat(
   dim: { w: number; h: number; fps: number }
 ): void {
   const { w, h, fps } = dim;
-  const startSec = (beat.startMs / 1000).toFixed(3);
   const durSec = Math.max(0.2, (beat.endMs - beat.startMs) / 1000).toFixed(3);
   const fit = `scale=${w}:${h}:force_original_aspect_ratio=increase,crop=${w}:${h},setsar=1,fps=${fps}`;
 
@@ -111,63 +122,58 @@ function renderBeat(
   const avCrop = beat.avatarClipPath ? contentCrop(beat.avatarClipPath) : null;
   const avPre = avCrop ? `crop=${avCrop},` : "";
 
-  // Full-screen avatar — HeyGen clip video + its own lip-synced audio.
-  // Blur-fill: a portrait talking-photo can never fill 16:9, and zoom-cropping
-  // it would cut the head. Background = the same clip scaled to fill + blurred,
-  // foreground = the clip fitted by height, centered. For an already-16:9 clip
-  // the foreground covers the frame exactly, so this is a no-op visually.
+  // Full-screen avatar — HeyGen clip video (looped to durSec to prevent EOF truncation).
   if (beat.layout === "avatar" && beat.avatarClipPath) {
     runFfmpeg([
-      "-i", beat.avatarClipPath,
+      "-stream_loop", "-1", "-t", durSec, "-i", beat.avatarClipPath,
       "-filter_complex",
       `[0:v]${avPre}split=2[bgs][fgs];` +
         `[bgs]scale=${w}:${h}:force_original_aspect_ratio=increase,crop=${w}:${h},boxblur=32:2,setsar=1[bg];` +
         `[fgs]scale=${w}:${h}:force_original_aspect_ratio=decrease,setsar=1[fg];` +
         `[bg][fg]overlay=(W-w)/2:(H-h)/2,fps=${fps}[v]`,
-      "-map", "[v]", "-map", "0:a:0",
-      ...encodeAV(fps), outPath,
+      "-map", "[v]", "-t", durSec,
+      ...encodeV(fps), outPath,
     ]);
     return;
   }
 
-  // Split: avatar left half (drives length + audio) + visual right half.
+  // Split: avatar left half + visual right half (both looped and trimmed precisely to durSec).
   if (beat.layout === "split" && beat.avatarClipPath && beat.visualPath) {
     const halfW = Math.round(w / 2);
     runFfmpeg([
-      "-i", beat.avatarClipPath,
-      "-stream_loop", "-1", "-i", beat.visualPath,
+      "-stream_loop", "-1", "-t", durSec, "-i", beat.avatarClipPath,
+      "-stream_loop", "-1", "-t", durSec, "-i", beat.visualPath,
       "-filter_complex",
       `[0:v]${avPre}scale=${halfW}:${h}:force_original_aspect_ratio=increase,crop=${halfW}:${h},setsar=1,fps=${fps}[l];` +
         `[1:v]scale=${halfW}:${h}:force_original_aspect_ratio=increase,crop=${halfW}:${h},setsar=1,fps=${fps}[r];` +
         `[l][r]hstack=inputs=2[v]`,
-      "-map", "[v]", "-map", "0:a:0", "-shortest",
-      ...encodeAV(fps), outPath,
+      "-map", "[v]", "-t", durSec,
+      ...encodeV(fps), outPath,
     ]);
     return;
   }
 
-  // Full-screen B-roll + the master voiceover slice for this beat.
+  // Full-screen B-roll visual clip.
   if (beat.visualPath) {
     runFfmpeg([
       "-stream_loop", "-1", "-t", durSec, "-i", beat.visualPath,
-      "-ss", startSec, "-t", durSec, "-i", voiceoverPath,
-      "-vf", fit, "-map", "0:v:0", "-map", "1:a:0", "-t", durSec,
-      ...encodeAV(fps), outPath,
+      "-vf", fit, "-t", durSec,
+      ...encodeV(fps), outPath,
     ]);
     return;
   }
 
-  // Last resort: a full-screen avatar clip with its own audio (blur-fill).
+  // Last resort: a full-screen avatar clip with blur-fill.
   if (beat.avatarClipPath) {
     runFfmpeg([
-      "-i", beat.avatarClipPath,
+      "-stream_loop", "-1", "-t", durSec, "-i", beat.avatarClipPath,
       "-filter_complex",
       `[0:v]${avPre}split=2[bgs][fgs];` +
         `[bgs]scale=${w}:${h}:force_original_aspect_ratio=increase,crop=${w}:${h},boxblur=32:2,setsar=1[bg];` +
         `[fgs]scale=${w}:${h}:force_original_aspect_ratio=decrease,setsar=1[fg];` +
         `[bg][fg]overlay=(W-w)/2:(H-h)/2,fps=${fps}[v]`,
-      "-map", "[v]", "-map", "0:a:0",
-      ...encodeAV(fps), outPath,
+      "-map", "[v]", "-t", durSec,
+      ...encodeV(fps), outPath,
     ]);
     return;
   }
@@ -185,7 +191,7 @@ export async function assembleStudioVideo(
   const beatsDir = path.join(outDir, "beats");
   fs.mkdirSync(beatsDir, { recursive: true });
   const dim = dims(resolution);
-  log(runId, "info", `Compositing ${beats.length} beats over the voiceover (${dim.w}x${dim.h})`, { stage: "assemble" });
+  log(runId, "info", `Compositing ${beats.length} silent video beats for continuous voiceover muxing (${dim.w}x${dim.h})`, { stage: "assemble" });
 
   const clipPaths: string[] = [];
   for (const beat of beats) {
@@ -201,16 +207,34 @@ export async function assembleStudioVideo(
   }
   if (clipPaths.length === 0) throw new Error("No beats rendered — cannot assemble");
 
-  // Concat the beats (each already carries its own aac audio → identical params,
-  // safe stream copy). The concatenated audio is the full narration in order.
+  // Concat the silent beat clips into one continuous visual track.
   const listFile = path.join(beatsDir, "concat.txt");
   fs.writeFileSync(
     listFile,
     clipPaths.map((p) => `file '${p.replace(/\\/g, "/").replace(/'/g, "'\\''")}'`).join("\n"),
     "utf-8"
   );
+  const silentConcat = path.join(beatsDir, "silent_concat.mp4");
+  runFfmpeg(["-f", "concat", "-safe", "0", "-i", listFile, "-c", "copy", "-an", "-y", silentConcat]);
+
+  // Mux the continuous, untouched master voiceover directly over the visual track.
+  // This eliminates all audio boundary cuts, AAC priming gaps, and HeyGen length desyncs entirely.
   const finalPath = path.join(outDir, "final.mp4");
-  runFfmpeg(["-f", "concat", "-safe", "0", "-i", listFile, "-c", "copy", "-movflags", "+faststart", "-y", finalPath]);
+  runFfmpeg([
+    "-i", silentConcat,
+    "-i", voiceoverPath,
+    "-map", "0:v:0",
+    "-map", "1:a:0",
+    "-c:v", "copy",
+    "-c:a", "aac",
+    "-b:a", "192k",
+    "-ar", "44100",
+    "-ac", "2",
+    "-movflags", "+faststart",
+    "-shortest",
+    "-y",
+    finalPath,
+  ]);
 
   log(runId, "success", `Final video: ${finalPath}`, { stage: "assemble" });
   return finalPath;

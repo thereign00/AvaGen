@@ -52,7 +52,18 @@ const ENCODE = [
   "-y",
 ];
 
-/** Render one beat clip (1920x1080 / 30fps / aac) to outPath. */
+const ENCODE_V = [
+  "-r", String(FPS),
+  "-c:v", "libx264",
+  "-preset", "veryfast",
+  "-crf", "23",
+  "-pix_fmt", "yuv420p",
+  "-an",
+  "-movflags", "+faststart",
+  "-y",
+];
+
+/** Render one beat clip (silent video of exact duration durSec) to outPath. */
 function renderBeat(avatarPath: string, beat: RenderBeat, outPath: string): void {
   const startSec = (beat.startMs / 1000).toFixed(3);
   const durSec = Math.max(0.2, (beat.endMs - beat.startMs) / 1000).toFixed(3);
@@ -62,40 +73,39 @@ function renderBeat(avatarPath: string, beat: RenderBeat, outPath: string): void
     runFfmpeg([
       "-ss", startSec, "-t", durSec, "-i", avatarPath,
       "-vf", `scale=${VW}:${VH}:force_original_aspect_ratio=increase,crop=${VW}:${VH},setsar=1,fps=${FPS}`,
-      "-map", "0:v:0", "-map", "0:a:0", "-t", durSec,
-      ...ENCODE, outPath,
+      "-map", "0:v:0", "-t", durSec,
+      ...ENCODE_V, outPath,
     ]);
     return;
   }
 
-  // Full-screen B-roll with the avatar's audio underneath.
+  // Full-screen B-roll (silent visual clip matching duration).
   if (beat.layout === "broll") {
     runFfmpeg([
-      "-ss", startSec, "-t", durSec, "-i", avatarPath,        // 0: avatar (audio source)
-      "-stream_loop", "-1", "-i", beat.brollPath,             // 1: B-roll (looped to fill)
+      "-stream_loop", "-1", "-t", durSec, "-i", beat.brollPath,
       "-filter_complex",
-      `[1:v]scale=${VW}:${VH}:force_original_aspect_ratio=increase,crop=${VW}:${VH},setsar=1,fps=${FPS}[v]`,
-      "-map", "[v]", "-map", "0:a:0", "-t", durSec,
-      ...ENCODE, outPath,
+      `[0:v]scale=${VW}:${VH}:force_original_aspect_ratio=increase,crop=${VW}:${VH},setsar=1,fps=${FPS}[v]`,
+      "-map", "[v]", "-t", durSec,
+      ...ENCODE_V, outPath,
     ]);
     return;
   }
 
-  // Split: avatar left half, B-roll right half.
+  // Split: avatar left half, B-roll right half (silent visual clip matching duration).
   const halfW = Math.round(VW / 2);
   runFfmpeg([
-    "-ss", startSec, "-t", durSec, "-i", avatarPath,          // 0: avatar (video + audio)
-    "-stream_loop", "-1", "-i", beat.brollPath,               // 1: B-roll
+    "-ss", startSec, "-t", durSec, "-i", avatarPath,
+    "-stream_loop", "-1", "-t", durSec, "-i", beat.brollPath,
     "-filter_complex",
     `[0:v]scale=${halfW}:${VH}:force_original_aspect_ratio=increase,crop=${halfW}:${VH},setsar=1,fps=${FPS}[l];` +
       `[1:v]scale=${halfW}:${VH}:force_original_aspect_ratio=increase,crop=${halfW}:${VH},setsar=1,fps=${FPS}[r];` +
       `[l][r]hstack=inputs=2[v]`,
-    "-map", "[v]", "-map", "0:a:0", "-t", durSec,
-    ...ENCODE, outPath,
+    "-map", "[v]", "-t", durSec,
+    ...ENCODE_V, outPath,
   ]);
 }
 
-/** Composite all beats over the avatar's own audio and concatenate → final.mp4. */
+/** Composite all silent video beats and mux the continuous avatar master audio over them → final.mp4. */
 export async function assembleAvatarVideo(
   runId: string,
   avatarPath: string,
@@ -105,7 +115,7 @@ export async function assembleAvatarVideo(
   const beatsDir = path.join(outDir, "beats");
   fs.mkdirSync(beatsDir, { recursive: true });
 
-  log(runId, "info", `Compositing ${beats.length} beats (avatar / split / broll)`, { stage: "assemble" });
+  log(runId, "info", `Compositing ${beats.length} silent video beats for continuous master audio muxing`, { stage: "assemble" });
 
   const clipPaths: string[] = [];
   for (const beat of beats) {
@@ -128,15 +138,31 @@ export async function assembleAvatarVideo(
   }
   if (clipPaths.length === 0) throw new Error("No beats rendered — cannot assemble avatar video");
 
-  // Concat (every beat is encoded with identical params → stream copy is safe).
+  // Concat silent video beats into one continuous visual track.
   const listFile = path.join(beatsDir, "concat.txt");
   fs.writeFileSync(
     listFile,
     clipPaths.map((p) => `file '${p.replace(/\\/g, "/").replace(/'/g, "'\\''")}'`).join("\n"),
     "utf-8"
   );
+  const silentConcat = path.join(beatsDir, "silent_concat.mp4");
+  runFfmpeg(["-f", "concat", "-safe", "0", "-i", listFile, "-c", "copy", "-an", "-y", silentConcat]);
+
+  // Mux the continuous, untouched master audio track from avatarPath directly onto the visual track.
   const finalPath = path.join(outDir, "final.mp4");
-  runFfmpeg(["-f", "concat", "-safe", "0", "-i", listFile, "-c", "copy", "-movflags", "+faststart", "-y", finalPath]);
+  runFfmpeg([
+    "-i", silentConcat,
+    "-i", avatarPath,
+    "-map", "0:v:0",
+    "-map", "1:a:0",
+    "-c:v", "copy",
+    "-c:a", "aac",
+    "-b:a", "192k",
+    "-movflags", "+faststart",
+    "-shortest",
+    "-y",
+    finalPath,
+  ]);
 
   log(runId, "success", `Final video: ${finalPath}`, { stage: "assemble" });
   return finalPath;

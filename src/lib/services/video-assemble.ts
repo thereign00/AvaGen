@@ -57,13 +57,16 @@ export async function assembleVideo(
         );
         const audioDuration = await probeDuration(item.audio.filePath);
         // Total clip duration = audio + silence padding at the end so consecutive
-        // scenes get a natural breath between them after concat.
-        const clipDuration = audioDuration + tailSilence;
+        // scenes get a natural breath between them after concat. When crossfades
+        // (acrossfade) are enabled, ensure the tail silence is at least transitionSec + 0.25s
+        // so the audio crossfade occurs entirely within the silence padding without clipping speech.
+        const effectiveTailSilence = transitionSec > 0 ? Math.max(tailSilence, transitionSec + 0.25) : tailSilence;
+        const clipDuration = audioDuration + effectiveTailSilence;
         if (item.videoPath) {
-          await renderAnimatedClip(item.videoPath, item.audio.filePath, clipPath, w, h, fps, clipDuration, tailSilence);
+          await renderAnimatedClip(item.videoPath, item.audio.filePath, clipPath, w, h, fps, clipDuration, effectiveTailSilence);
         } else {
           const zoomDirection: "in" | "out" = Math.random() < 0.5 ? "in" : "out";
-          await renderKenBurnsClip(item.imagePath, item.audio.filePath, clipPath, w, h, fps, clipDuration, zoomDirection, tailSilence);
+          await renderKenBurnsClip(item.imagePath, item.audio.filePath, clipPath, w, h, fps, clipDuration, zoomDirection, effectiveTailSilence);
         }
         log(
           runId,

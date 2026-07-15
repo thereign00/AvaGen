@@ -98,12 +98,25 @@ export async function planAvatarBeats(
   );
 
   // Build beats — any missing / unknown layout defaults to "split".
-  const beats: AvatarBeat[] = segments.map((s) => {
+  const beats: AvatarBeat[] = segments.map((s, idx) => {
     const p = byIndex.get(s.index);
     const layout: BeatLayout = p && isLayout(p.layout) ? p.layout : "split";
     const visualQuery = layout === "avatar" ? "" : (p?.visual_query?.trim() || s.text.trim());
-    return { startMs: s.startMs, endMs: s.endMs, text: s.text, layout, visualQuery, source: "ai" };
+    const startMs = idx === 0 ? 0 : segments[idx].startMs;
+    return { startMs, endMs: s.endMs, text: s.text, layout, visualQuery, source: "ai" };
   });
+
+  // Make all beats 100% contiguous so no pauses or trailing word breaths between segments are cut out
+  for (let i = 0; i < beats.length - 1; i++) {
+    if (beats[i + 1].startMs > beats[i].endMs) {
+      beats[i].endMs = beats[i + 1].startMs;
+    } else {
+      beats[i + 1].startMs = beats[i].endMs;
+    }
+  }
+  if (beats.length > 0) {
+    beats[beats.length - 1].endMs += 800;
+  }
 
   // Assign source (AI vs Pexels stock) across the visual beats, evenly spread.
   const ratio = Math.max(0, Math.min(100, opts.stockRatioPercent));
