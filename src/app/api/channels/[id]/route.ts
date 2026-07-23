@@ -3,6 +3,7 @@ import { ensureInit } from "@/lib/init";
 import { getChannel, updateChannel, deleteChannel } from "@/lib/channels";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   ensureInit();

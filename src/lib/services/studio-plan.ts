@@ -115,8 +115,9 @@ async function planVisualQueries(
   }
   const model = getSetting("SCENE_SPLIT_MODEL") || "gemini-flash-latest";
   const numbered = beats.map((b) => `[${b.index}] ${b.text}`).join("\n");
+  const customGuidance = guidance && guidance.trim() ? `\n\nChannel/Video Visual Instructions:\n${guidance.trim()}` : "";
   const prompt =
-    `${(guidance && guidance.trim()) || DEFAULT_VISUAL_GUIDANCE}\n\n` +
+    `${DEFAULT_VISUAL_GUIDANCE}${customGuidance}\n\n` +
     `${numbered}\n\n` +
     `Return STRICTLY a JSON array, one object per line IN ORDER: {"index": <int>, "visual_query": "<string>"}. No markdown.`;
   // Gemini under load returns 503 ("high demand") — retry with backoff, then

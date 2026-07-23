@@ -3,6 +3,7 @@ import { ensureInit } from "@/lib/init";
 import { listChannels, createChannel, getChannel } from "@/lib/channels";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function GET() {
   ensureInit();
